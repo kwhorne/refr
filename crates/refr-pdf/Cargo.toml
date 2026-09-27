@@ -12,3 +12,6 @@ pdfium-render.workspace = true
 image.workspace = true
 thiserror.workspace = true
 zip.workspace = true
+
+[dev-dependencies]
+chrono.workspace = true

@@ -9,6 +9,8 @@ the engine in Chromium. It is a port of [PdfSpace](https://github.com/wieslawsol
 and writes PdfSpace's `.pdfspace` workspaces. There is no account, no upload and no
 telemetry.
 
+![Refr with the sample report open: highlighted headline, an underlined subtitle, a comment, a circled chart with a red note and an approval stamp](docs/screenshot.png)
+
 ## Download
 
 Get the signed and notarized `Refr-<version>-arm64.dmg` from
