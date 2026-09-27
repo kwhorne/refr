@@ -41,6 +41,8 @@ actions!(
         NudgeDownFar,
         CancelGesture,
         ShowHelp,
+        ShowAbout,
+        CloseModal,
         ShowHome,
         // Text input
         Backspace,

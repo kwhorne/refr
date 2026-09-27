@@ -82,7 +82,20 @@ impl Workbench {
                     .gap(px(6.))
                     .mr(px(10.))
                     .child(icon("file").size(px(24.)).text_color(rgb(theme::BRAND)))
-                    .child(div().text_size(px(16.)).font_weight(FontWeight::SEMIBOLD).text_color(rgb(0x383838)).child("Refr"))
+                    .child(
+                        div()
+                            .id("brand")
+                            .px(px(4.))
+                            .rounded(px(4.))
+                            .cursor_pointer()
+                            .hover(|s| s.bg(rgba(0x0000000D)))
+                            .tooltip(theme::tooltip("About Refr"))
+                            .on_click(cx.listener(|this, _, window, cx| this.show_about(window, cx)))
+                            .text_size(px(16.))
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(rgb(0x383838))
+                            .child("Refr"),
+                    )
                     .child(button("home").icon("home").tooltip("Home").selected(self.home).on_click(cx.listener(|this, _, _, cx| {
                         this.home = !this.home;
                         cx.notify();
@@ -814,6 +827,7 @@ impl Render for Workbench {
                 this.with_doc(cx, |d, cx| d.go_to_page(usize::MAX, cx));
             }))
             .on_action(cx.listener(|this, _: &ShowHelp, window, cx| this.show_help(window, cx)))
+            .on_action(cx.listener(|this, _: &ShowAbout, window, cx| this.show_about(window, cx)))
             .on_action(cx.listener(|this, _: &ShowHome, _, cx| {
                 this.home = !this.home;
                 cx.notify();
@@ -828,5 +842,6 @@ impl Render for Workbench {
             .child(div().flex_1().min_h(px(0.)).overflow_hidden().child(body))
             .child(self.footer(width, cx))
             .children(self.dialog_view(cx))
+            .children(self.about_view(cx))
     }
 }

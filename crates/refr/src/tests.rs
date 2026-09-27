@@ -9,6 +9,7 @@ use refr_pdf::Engine;
 
 use crate::document::DocumentView;
 use crate::workbench::Workbench;
+use crate::actions::ShowAbout;
 
 fn engine() -> Engine {
     static ENGINE: OnceLock<Engine> = OnceLock::new();
@@ -270,4 +271,19 @@ fn keyboard_shortcuts_reach_the_viewport(cx: &mut TestAppContext) {
     cx.simulate_keystrokes("pagedown");
     cx.run_until_parked();
     assert_eq!(doc.read_with(cx, |d, _| d.session.current_page()), 1);
+}
+
+#[gpui::test]
+fn about_window_opens_from_the_menu_action_and_closes_with_escape(cx: &mut TestAppContext) {
+    let (workbench, cx) = setup(cx);
+    cx.dispatch_action(ShowAbout);
+    cx.run_until_parked();
+    assert!(workbench.read_with(cx, |w, _| w.about.is_some()));
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    assert!(workbench.read_with(cx, |w, _| w.about.is_none()));
+    // Focus goes back to the document, so viewport shortcuts work again.
+    cx.simulate_keystrokes("h");
+    let doc = doc(&workbench, cx);
+    assert_eq!(doc.read_with(cx, |d, _| d.session.tool()), PdfTool::Hand);
 }

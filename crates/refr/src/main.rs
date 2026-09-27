@@ -1,5 +1,6 @@
 //! Refr: a local-first PDF workspace for macOS, built on GPUI and PDFium.
 
+mod about;
 mod actions;
 mod assets;
 mod document;
@@ -56,6 +57,7 @@ fn key_bindings() -> Vec<KeyBinding> {
         KeyBinding::new("cmd--", ZoomOut, None),
         KeyBinding::new("cmd-shift-h", ShowHome, None),
         KeyBinding::new("cmd-/", ShowHelp, None),
+        KeyBinding::new("escape", CloseModal, Some("Modal")),
         // Viewport
         KeyBinding::new("pageup", PreviousPage, Some(VIEWPORT)),
         KeyBinding::new("pagedown", NextPage, Some(VIEWPORT)),
@@ -102,6 +104,8 @@ fn menus() -> Vec<Menu> {
         Menu {
             name: "Refr".into(),
             items: vec![
+                MenuItem::action("About Refr", ShowAbout),
+                MenuItem::separator(),
                 MenuItem::action("Keyboard and Pointer Guide", ShowHelp),
                 MenuItem::separator(),
                 MenuItem::os_submenu("Services", SystemMenuType::Services),

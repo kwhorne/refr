@@ -84,6 +84,8 @@ pub struct Workbench {
     pub reply_input: Entity<TextInput>,
     pub page_input: Entity<TextInput>,
     pub dialog: Option<Dialog>,
+    /// Focus handle of the open About window.
+    pub about: Option<FocusHandle>,
     pub match_case: bool,
     pub hide_resolved: bool,
     pub reply_to: Option<Uuid>,
@@ -149,6 +151,7 @@ impl Workbench {
             reply_input,
             page_input,
             dialog: None,
+            about: None,
             match_case: false,
             hide_resolved: false,
             reply_to: None,
