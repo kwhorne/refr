@@ -101,6 +101,8 @@ pub struct DocumentView {
     pub focus_handle: FocusHandle,
     /// Where the editable workspace was last saved.
     pub path: Option<PathBuf>,
+    /// When the document last changed, in the workbench's change order.
+    pub last_change: u64,
     pub zoom: f64,
     pub(crate) scroll: f64,
     pub(crate) pan: f64,
@@ -146,6 +148,7 @@ impl DocumentView {
             engine,
             focus_handle: cx.focus_handle(),
             path: None,
+            last_change: 0,
             zoom: 1.0,
             scroll: 0.0,
             pan: 0.0,

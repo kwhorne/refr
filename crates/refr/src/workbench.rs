@@ -93,7 +93,15 @@ pub struct Workbench {
     pub focus_handle: FocusHandle,
     pub thumb_scroll: UniformListScrollHandle,
     pub organize_scroll: UniformListScrollHandle,
+    /// Where the recovery copy and recent files live.
+    pub data_dir: PathBuf,
     autosave: Option<Task<()>>,
+    /// Counts document changes, so the recovery copy can follow the latest one.
+    change_counter: u64,
+    /// Set while the launch-time restore question is open; the recovery copy is left
+    /// alone until it's answered.
+    offering_recovery: bool,
+    _quit: Subscription,
     subscriptions: Vec<(EntityId, [Subscription; 2])>,
     _inputs: Vec<Subscription>,
 }
@@ -105,7 +113,7 @@ impl Focusable for Workbench {
 }
 
 impl Workbench {
-    pub fn new(engine: Engine, initial: Vec<PathBuf>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(engine: Engine, initial: Vec<PathBuf>, data_dir: PathBuf, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let find_input = cx.new(|cx| TextInput::new("Find in document", cx));
         let reply_input = cx.new(|cx| TextInput::new("Reply…", cx));
         let page_input = cx.new(|cx| TextInput::new("", cx));
@@ -155,14 +163,28 @@ impl Workbench {
             match_case: false,
             hide_resolved: false,
             reply_to: None,
-            recents: storage::recents(),
+            recents: storage::recents(&data_dir),
             focus_handle: cx.focus_handle(),
             thumb_scroll: UniformListScrollHandle::new(),
             organize_scroll: UniformListScrollHandle::new(),
+            data_dir,
             autosave: None,
+            change_counter: 0,
+            offering_recovery: true,
+            _quit: cx.on_app_quit(|this, cx| {
+                this.flush_recovery(cx);
+                async {}
+            }),
             subscriptions: Vec::new(),
             _inputs: inputs,
         };
+        // Quitting from the menu, ⌘Q or the close button can close the window, and drop
+        // this workbench, before app-quit handlers run, so settle the recovery copy here.
+        let workbench = cx.entity().downgrade();
+        window.on_window_should_close(cx, move |_, cx| {
+            workbench.update(cx, |this, cx| this.flush_recovery(cx)).ok();
+            true
+        });
         if initial.is_empty() {
             this.open_sample(window, cx);
         }
@@ -274,15 +296,16 @@ impl Workbench {
             let next = if index <= self.active { self.active.saturating_sub(1) } else { self.active };
             self.activate(next.min(self.documents.len() - 1), window, cx);
         }
+        self.sync_recovery(cx);
     }
 
     fn on_document_event(&mut self, doc: &Entity<DocumentView>, event: &DocumentEvent, window: &mut Window, cx: &mut Context<Self>) {
-        let is_active = self.doc() == Some(doc);
         match event {
             DocumentEvent::Changed => {
-                if is_active {
-                    self.schedule_recovery(cx);
-                }
+                self.change_counter += 1;
+                let order = self.change_counter;
+                doc.update(cx, |d, _| d.last_change = order);
+                self.sync_recovery(cx);
                 cx.notify();
             }
             DocumentEvent::Status(text, error) => {
@@ -373,12 +396,33 @@ impl Workbench {
 
     // ---- Recovery -------------------------------------------------------------------------
 
-    fn schedule_recovery(&mut self, cx: &mut Context<Self>) {
-        let Some(workspace) = self.workspace(cx) else { return };
+    /// The document the recovery copy should hold: the most recently changed one with
+    /// unsaved changes.
+    fn recovery_candidate(&self, cx: &gpui::App) -> Option<Arc<PdfWorkspace>> {
+        self.documents
+            .iter()
+            .map(|d| d.read(cx))
+            .filter(|d| d.session.is_dirty())
+            .max_by_key(|d| d.last_change)
+            .map(|d| d.doc().clone())
+    }
+
+    /// Keeps the recovery copy in step with the open documents: it is rewritten shortly
+    /// after a change, and removed once no document has unsaved changes.
+    pub fn sync_recovery(&mut self, cx: &mut Context<Self>) {
+        if self.offering_recovery {
+            return;
+        }
+        let Some(workspace) = self.recovery_candidate(cx) else {
+            self.autosave = None;
+            storage::clear_recovery(&self.data_dir);
+            return;
+        };
         let background = cx.background_executor().clone();
+        let dir = self.data_dir.clone();
         self.autosave = Some(cx.spawn(async move |this, cx| {
             background.timer(Duration::from_millis(1200)).await;
-            let result = background.spawn(async move { storage::write_recovery(&workspace_json::save(&workspace)) }).await;
+            let result = background.spawn(async move { storage::write_recovery(&dir, &workspace_json::save(&workspace)) }).await;
             this.update(cx, |this, cx| match result {
                 Ok(()) => this.set_status("Recovery copy saved on this device. Save a workspace for a permanent copy.", cx),
                 Err(error) => this.error(format!("Recovery could not be saved: {error}. Save your workspace now."), cx),
@@ -387,26 +431,76 @@ impl Workbench {
         }));
     }
 
+    /// On quit, writes a pending recovery copy right away, or removes it when everything
+    /// is saved.
+    pub(crate) fn flush_recovery(&mut self, cx: &mut Context<Self>) {
+        if self.offering_recovery {
+            return;
+        }
+        self.autosave = None;
+        match self.recovery_candidate(cx) {
+            Some(workspace) => {
+                storage::write_recovery(&self.data_dir, &workspace_json::save(&workspace)).ok();
+            }
+            None => storage::clear_recovery(&self.data_dir),
+        }
+    }
+
     fn offer_recovery(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let task = cx.background_executor().spawn(async { storage::read_recovery() });
+        let dir = self.data_dir.clone();
+        let task = cx.background_executor().spawn(async move { storage::read_recovery(&dir) });
         cx.spawn_in(window, async move |this, cx| {
-            let Some(workspace) = task.await else { return };
+            let finish = |this: &mut Workbench, cx: &mut Context<Workbench>| {
+                this.offering_recovery = false;
+                this.sync_recovery(cx);
+            };
+            let Some(workspace) = task.await else {
+                this.update(cx, |this, cx| finish(this, cx)).ok();
+                return;
+            };
             let Ok(answer) = this.update_in(cx, |_, window, cx| {
                 window.prompt(
                     PromptLevel::Info,
-                    "Restore your previous workspace?",
-                    Some("A recovery copy is available on this device. Your source PDF has not been changed."),
-                    &["Restore", "Not Now"],
+                    "Restore unsaved changes?",
+                    Some("Refr kept a recovery copy of a document with unsaved changes. Your source PDF has not been changed."),
+                    &["Restore", "Discard"],
                     cx,
                 )
             }) else {
                 return;
             };
-            if answer.await == Ok(0) {
-                this.update_in(cx, |this, window, cx| this.add_document(workspace, None, window, cx)).ok();
-            }
+            let answer = answer.await;
+            this.update_in(cx, |this, window, cx| {
+                match answer {
+                    Ok(0) => this.restore(workspace, window, cx),
+                    Ok(1) => storage::clear_recovery(&this.data_dir),
+                    _ => {}
+                }
+                finish(this, cx);
+            })
+            .ok();
         })
         .detach();
+    }
+
+    /// Opens a recovery copy as a new document with unsaved changes, so closing it asks
+    /// first and the recovery copy keeps following it until it's saved.
+    fn restore(&mut self, workspace: PdfWorkspace, window: &mut Window, cx: &mut Context<Self>) {
+        let count = self.documents.len();
+        self.add_document(workspace, None, window, cx);
+        if self.documents.len() == count {
+            return;
+        }
+        self.change_counter += 1;
+        let order = self.change_counter;
+        if let Some(doc) = self.documents.last() {
+            doc.update(cx, |d, cx| {
+                d.session.mark_unsaved();
+                d.last_change = order;
+                cx.notify();
+            });
+        }
+        self.set_status("Restored unsaved changes. Save a workspace to keep them.", cx);
     }
 
     // ---- Opening --------------------------------------------------------------------------
@@ -442,7 +536,7 @@ impl Workbench {
             let result = task.await;
             this.update_in(cx, |this, window, cx| match result {
                 Ok(workspace) => {
-                    this.recents = storage::remember(&path);
+                    this.recents = storage::remember(&this.data_dir, &path);
                     if combine {
                         let pages = workspace.pages.len();
                         this.with_doc(cx, |d, cx| d.edit(cx, |s| s.combine(&workspace)));
@@ -511,7 +605,8 @@ impl Workbench {
                     d.path = Some(path.clone());
                     cx.notify();
                 });
-                this.recents = storage::remember(&path);
+                this.recents = storage::remember(&this.data_dir, &path);
+                this.sync_recovery(cx);
                 this.set_status(format!("Saved editable workspace to {}. It contains the full original PDF.", path.display()), cx);
             }
         };

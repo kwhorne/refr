@@ -770,6 +770,10 @@ impl Render for Workbench {
             .bg(rgb(0xFFFFFF))
             .font_family(theme::FONT)
             .text_color(rgb(theme::TEXT))
+            .on_action(cx.listener(|this, _: &Quit, _, cx| {
+                this.flush_recovery(cx);
+                cx.quit();
+            }))
             .on_action(cx.listener(|this, _: &OpenFile, window, cx| this.open_dialog(false, window, cx)))
             .on_action(cx.listener(|this, _: &NewBlank, window, cx| this.new_blank(window, cx)))
             .on_action(cx.listener(|this, _: &OpenSample, window, cx| this.open_sample(window, cx)))

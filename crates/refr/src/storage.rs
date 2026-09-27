@@ -15,12 +15,12 @@ pub fn data_dir() -> PathBuf {
     dir
 }
 
-fn recovery_path() -> PathBuf {
-    data_dir().join("recovery.pdfspace")
+pub fn recovery_path(dir: &Path) -> PathBuf {
+    dir.join("recovery.pdfspace")
 }
 
-fn recents_path() -> PathBuf {
-    data_dir().join("recent.json")
+fn recents_path(dir: &Path) -> PathBuf {
+    dir.join("recent.json")
 }
 
 /// Writes through a temporary file and rename, so a crash never leaves a half-written file.
@@ -54,17 +54,25 @@ pub fn load(engine: &Engine, path: &Path) -> Result<PdfWorkspace, String> {
     }
 }
 
-pub fn read_recovery() -> Option<PdfWorkspace> {
-    let text = std::fs::read_to_string(recovery_path()).ok()?;
+pub fn read_recovery(dir: &Path) -> Option<PdfWorkspace> {
+    let text = std::fs::read_to_string(recovery_path(dir)).ok()?;
     workspace_json::load(&text).ok()
 }
 
-pub fn write_recovery(json: &str) -> std::io::Result<()> {
-    write_atomic(&recovery_path(), json.as_bytes())
+pub fn write_recovery(dir: &Path, json: &str) -> std::io::Result<()> {
+    write_atomic(&recovery_path(dir), json.as_bytes())
 }
 
-pub fn recents() -> Vec<PathBuf> {
-    std::fs::read_to_string(recents_path())
+/// Removes the recovery copy, if there is one.
+pub fn clear_recovery(dir: &Path) {
+    let path = recovery_path(dir);
+    if path.exists() {
+        std::fs::remove_file(path).ok();
+    }
+}
+
+pub fn recents(dir: &Path) -> Vec<PathBuf> {
+    std::fs::read_to_string(recents_path(dir))
         .ok()
         .and_then(|t| serde_json::from_str::<Vec<PathBuf>>(&t).ok())
         .unwrap_or_default()
@@ -73,13 +81,13 @@ pub fn recents() -> Vec<PathBuf> {
         .collect()
 }
 
-pub fn remember(path: &Path) -> Vec<PathBuf> {
-    let mut list = recents();
+pub fn remember(dir: &Path, path: &Path) -> Vec<PathBuf> {
+    let mut list = recents(dir);
     list.retain(|p| p != path);
     list.insert(0, path.to_path_buf());
     list.truncate(10);
     if let Ok(json) = serde_json::to_string(&list) {
-        write_atomic(&recents_path(), json.as_bytes()).ok();
+        write_atomic(&recents_path(dir), json.as_bytes()).ok();
     }
     list
 }

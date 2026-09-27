@@ -75,7 +75,7 @@ If none exists, Refr shows **Refr could not start its PDF engine** and quits.
 | Variable | Used by | Effect |
 |---|---|---|
 | `REFR_PDFIUM` | App, tests | Path to `libpdfium.dylib` |
-| `REFR_DATA_DIR` | App, tests | Replaces `~/Library/Application Support/Refr` for the recovery copy and recent files. The app tests set it so they never touch your data. |
+| `REFR_DATA_DIR` | App | Replaces `~/Library/Application Support/Refr` for the recovery copy and recent files. Handy for trying Refr without touching your own data. |
 | `PDFIUM_VERSION` | `fetch-pdfium.sh` | The PDFium release tag to download |
 | `SIGN_IDENTITY` | `bundle.sh`, `release.sh` | The code-signing identity |
 | `NOTARY_PROFILE` | `release.sh` | The notarytool keychain profile |

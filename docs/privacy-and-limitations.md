@@ -11,7 +11,7 @@
 
 | File | Holds |
 |---|---|
-| `~/Library/Application Support/Refr/recovery.pdfspace` | The [recovery copy](saving-and-exporting.md#the-recovery-copy) of the document you changed most recently, including its original PDF |
+| `~/Library/Application Support/Refr/recovery.pdfspace` | The [recovery copy](saving-and-exporting.md#the-recovery-copy), including its original PDF. It exists only while a document has unsaved changes. |
 | `~/Library/Application Support/Refr/recent.json` | Paths of the last ten files you opened or saved |
 | `$TMPDIR/Refr/<title>-print.pdf` | The PDF created when you print |
 

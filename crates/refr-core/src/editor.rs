@@ -107,6 +107,12 @@ impl EditorSession {
         self.saved = self.document.clone();
     }
 
+    /// Marks the current document as unsaved, for one that came from a recovery copy
+    /// rather than a saved file. No undo step leads back to a clean state.
+    pub fn mark_unsaved(&mut self) {
+        self.saved = Arc::new((*self.document).clone());
+    }
+
     pub fn can_undo(&self) -> bool {
         !self.undo.is_empty()
     }

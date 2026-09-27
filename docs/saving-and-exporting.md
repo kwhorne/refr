@@ -84,24 +84,29 @@ looks exactly like an exported PDF.
 
 ## The recovery copy
 
-About a second after each change, Refr saves a recovery copy of the document you're working
-on to:
+While a document has unsaved changes, Refr keeps a recovery copy of it on your Mac:
 
 ```
 ~/Library/Application Support/Refr/recovery.pdfspace
 ```
 
-The status bar confirms each save. If Refr quits unexpectedly, the next launch offers to
-restore the copy in a new tab.
+- The copy is written about a second after each change, and the status bar confirms it.
+  When you quit, a pending copy is written right away.
+- There is one recovery copy. It holds the document with unsaved changes that you changed
+  most recently. If that document is saved, closed or undone back to its saved state, the
+  copy switches to the next document with unsaved changes.
+- When no open document has unsaved changes, for example after you save or when you
+  close a document and discard its changes, the copy is deleted.
 
-The recovery copy is a safety net, not a save:
+If Refr quits unexpectedly, or you quit with unsaved changes, the next launch asks
+**Restore unsaved changes?**
 
-- There is one recovery copy, and it holds the document you changed most recently.
-  Changes to other open tabs aren't in it.
-- It stays until the next change replaces it. Refr offers it on every launch, and you can
-  choose **Not Now**.
+- **Restore** opens the copy in a new tab. It's marked as unsaved, so closing it asks
+  first, and the recovery copy is kept until you save it.
+- **Discard** deletes the copy.
 
-Save a workspace to keep your work permanently.
+The recovery copy is a safety net, not a save. Save a workspace to keep your work
+permanently.
 
 ## How files are written
 

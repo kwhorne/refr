@@ -96,6 +96,12 @@ and text objects, and adds comments as PDF text annotations.
 - Annotation text is painted with GPUI's text system on upright pages. On rotated pages
   `glyphs.rs` lays out outlines from the system Helvetica and fills them as paths
   through the page transform, because GPUI can't rotate text.
+- The recovery copy follows unsaved changes. After each change, `Workbench::sync_recovery`
+  picks the most recently changed dirty document and writes it after a short delay, or
+  deletes the copy when nothing is dirty. The Quit action and the window's should-close
+  hook settle it at once with `flush_recovery`, because the window, and with it the
+  workbench, can be gone before GPUI's app-quit handlers run. The data folder is passed to
+  `Workbench::new` (`storage::data_dir()` in the app, a temporary folder in tests).
 - Viewport shortcuts use the context `Viewport && !TextInput`, so single-letter tool
   keys never steal typing from the inline text editor.
 
@@ -107,6 +113,7 @@ and text objects, and adds comments as PDF text annotations.
 - `refr`: a real workbench in GPUI's headless test window, driven by simulated pointer
   and keyboard events. Covers highlighting, drawing, moving and resizing, undo, rotated
   pages, the text and comment tools, cropping, copying, zoom, shortcuts and the About
-  window. These tests set `REFR_DATA_DIR` so they never touch the user's recovery file.
+  window and the recovery copy. Each test gets its own data folder, so tests never touch
+  the user's recovery copy or each other's.
 
 See [Testing](testing.md) for the full list and how to write new tests.

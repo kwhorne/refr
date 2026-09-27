@@ -59,11 +59,19 @@ the desktop, and the tests run in well under a second.
 | `command_scroll_zooms_around_the_pointer` | The page point under the pointer stays fixed while zooming |
 | `keyboard_shortcuts_reach_the_viewport` | Delete, tool keys and Page Down |
 | `workspace_round_trips_through_a_file` | Saving and reopening a workspace |
+| `coordinates_round_trip_exactly` (refr-core) | Coordinates survive a save and load bit for bit |
 | `about_window_opens_from_the_menu_action_and_closes_with_escape` | The About window and focus afterwards |
+| `recovery_copy_is_removed_when_changes_are_undone` | Undoing back to the saved state deletes the recovery copy |
+| `saving_a_workspace_removes_the_recovery_copy` | Saving deletes it |
+| `recovery_follows_another_document_with_unsaved_changes` | The copy switches to the next document with unsaved changes |
+| `restored_recovery_opens_as_unsaved` | **Restore** opens the copy as an unsaved document and keeps the file |
+| `discarding_the_recovery_copy_deletes_it` | **Discard** deletes it |
+| `quitting_writes_a_pending_recovery_copy_at_once` and `quitting_with_everything_saved_removes_the_recovery_copy` | What happens to the recovery copy on quit |
 | `helvetica_outlines_follow_the_pen` | Glyph outlines for rotated text |
 
-The tests set `REFR_DATA_DIR` to a temporary folder, so they never read or overwrite your
-recovery copy or recent files.
+Each test gets its own temporary data folder (`data_dir()` in `tests.rs`), passed to
+`Workbench::new`. Tests never read or overwrite your recovery copy or recent files, and
+tests running in parallel don't see each other's files.
 
 ### Writing a UI test
 
@@ -87,6 +95,9 @@ fn rectangle_tool_draws_a_rectangle(cx: &mut TestAppContext) {
   depend on window size or zoom.
 - Call `cx.run_until_parked()` after events that start background work, such as renders,
   searches and dialogs.
+- Timers, such as the recovery copy's one-second delay, use GPUI's test clock. Move it
+  forward with `cx.executor().advance_clock(duration)`.
+- Answer macOS alerts with `cx.simulate_prompt_answer("Restore")`.
 - Use `cx.simulate_keystrokes("cmd-z")` for shortcuts and `cx.simulate_input("text")` for
   typing. Both go through the real key bindings.
 - Use `cx.dispatch_action(SomeAction)` for menu commands.

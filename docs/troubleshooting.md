@@ -84,9 +84,9 @@ Builds from [Releases](https://github.com/kwhorne/refr/releases) are notarized a
 normally. A build you made with `scripts/bundle.sh` is only signed ad hoc. Right-click it and
 choose **Open**, or run it from Terminal.
 
-**Refr offers to restore a workspace every time it starts.**
-The recovery copy stays until a new change replaces it. Choose **Not Now**, or delete
-`~/Library/Application Support/Refr/recovery.pdfspace` while Refr is closed.
+**Refr asks to restore unsaved changes when it starts.**
+Refr quit last time while a document had unsaved changes, or it quit unexpectedly. Choose
+**Restore** to get the changes back, or **Discard** to delete them.
 
 ## Reporting a problem
 

@@ -16,14 +16,24 @@ fn engine() -> Engine {
     ENGINE.get_or_init(|| Engine::start(Engine::locate_library().expect("run scripts/fetch-pdfium.sh")).expect("PDFium binds")).clone()
 }
 
-fn setup(cx: &mut TestAppContext) -> (Entity<Workbench>, &mut VisualTestContext) {
-    let dir = std::env::temp_dir().join(format!("refr-tests-{}", std::process::id()));
+/// A fresh data directory per test, so tests never share a recovery copy or recent files.
+fn data_dir() -> std::path::PathBuf {
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!("refr-tests-{}-{n}", std::process::id()));
+    std::fs::remove_dir_all(&dir).ok();
     std::fs::create_dir_all(&dir).unwrap();
-    // SAFETY: every test sets the same value before any storage access.
-    unsafe { std::env::set_var("REFR_DATA_DIR", &dir) };
+    dir
+}
+
+fn setup(cx: &mut TestAppContext) -> (Entity<Workbench>, &mut VisualTestContext) {
+    setup_in(cx, data_dir())
+}
+
+fn setup_in(cx: &mut TestAppContext, dir: std::path::PathBuf) -> (Entity<Workbench>, &mut VisualTestContext) {
     cx.update(|cx| cx.bind_keys(crate::key_bindings()));
     let engine = engine();
-    let (workbench, cx) = cx.add_window_view(|window, cx| Workbench::new(engine, Vec::new(), window, cx));
+    let (workbench, cx) = cx.add_window_view(|window, cx| Workbench::new(engine, Vec::new(), dir, window, cx));
     cx.run_until_parked();
     (workbench, cx)
 }
@@ -286,4 +296,121 @@ fn about_window_opens_from_the_menu_action_and_closes_with_escape(cx: &mut TestA
     cx.simulate_keystrokes("h");
     let doc = doc(&workbench, cx);
     assert_eq!(doc.read_with(cx, |d, _| d.session.tool()), PdfTool::Hand);
+}
+
+fn recovery_file(workbench: &Entity<Workbench>, cx: &mut VisualTestContext) -> std::path::PathBuf {
+    workbench.read_with(cx, |w, _| crate::storage::recovery_path(&w.data_dir))
+}
+
+fn draw_rectangle(workbench: &Entity<Workbench>, doc: &Entity<DocumentView>, cx: &mut VisualTestContext) {
+    use_tool(workbench, cx, PdfTool::Rectangle);
+    let (from, to) = (at(doc, cx, 0, PointD::new(100.0, 450.0)), at(doc, cx, 0, PointD::new(200.0, 500.0)));
+    drag(cx, from, to);
+    cx.executor().advance_clock(std::time::Duration::from_secs(2));
+    cx.run_until_parked();
+}
+
+#[gpui::test]
+fn recovery_copy_is_removed_when_changes_are_undone(cx: &mut TestAppContext) {
+    let (workbench, cx) = setup(cx);
+    let doc = doc(&workbench, cx);
+    let recovery = recovery_file(&workbench, cx);
+    draw_rectangle(&workbench, &doc, cx);
+    assert!(recovery.exists(), "an unsaved change writes the recovery copy");
+    cx.simulate_keystrokes("cmd-z");
+    cx.run_until_parked();
+    assert!(!recovery.exists(), "back at the saved state, the recovery copy goes away");
+}
+
+#[gpui::test]
+fn saving_a_workspace_removes_the_recovery_copy(cx: &mut TestAppContext) {
+    let (workbench, cx) = setup(cx);
+    let doc = doc(&workbench, cx);
+    let recovery = recovery_file(&workbench, cx);
+    draw_rectangle(&workbench, &doc, cx);
+    assert!(recovery.exists());
+    let target = workbench.read_with(cx, |w, _| w.data_dir.join("saved.pdfspace"));
+    doc.update(cx, |d, _| d.path = Some(target.clone()));
+    cx.simulate_keystrokes("cmd-s");
+    cx.run_until_parked();
+    assert!(target.exists(), "saved in place");
+    assert!(!recovery.exists(), "nothing unsaved is left to recover");
+    assert!(!doc.read_with(cx, |d, _| d.session.is_dirty()));
+}
+
+#[gpui::test]
+fn recovery_follows_another_document_with_unsaved_changes(cx: &mut TestAppContext) {
+    let (workbench, cx) = setup(cx);
+    let first = doc(&workbench, cx);
+    let recovery = recovery_file(&workbench, cx);
+    draw_rectangle(&workbench, &first, cx);
+    workbench.update_in(cx, |w, window, cx| w.open_sample(window, cx));
+    cx.run_until_parked();
+    let second = doc(&workbench, cx);
+    draw_rectangle(&workbench, &second, cx);
+    // Undoing the newer change leaves the first document as the only one to recover.
+    cx.simulate_keystrokes("cmd-z");
+    cx.executor().advance_clock(std::time::Duration::from_secs(2));
+    cx.run_until_parked();
+    let saved = crate::storage::read_recovery(recovery.parent().unwrap()).expect("recovery copy kept");
+    assert_eq!(second.read_with(cx, |d, _| d.doc().annotation_count()), 0);
+    assert_eq!(saved, *first.read_with(cx, |d, _| d.doc().clone()));
+}
+
+fn write_recovery_for_test(dir: &std::path::Path) -> refr_core::PdfWorkspace {
+    let mut workspace = engine().sample().unwrap();
+    workspace.title = "Recovered.pdf".into();
+    crate::storage::write_recovery(dir, &refr_core::workspace_json::save(&workspace)).unwrap();
+    workspace
+}
+
+#[gpui::test]
+fn restored_recovery_opens_as_unsaved(cx: &mut TestAppContext) {
+    let dir = data_dir();
+    write_recovery_for_test(&dir);
+    let (workbench, vcx) = setup_in(cx, dir.clone());
+    assert!(vcx.has_pending_prompt(), "Refr asks whether to restore");
+    vcx.simulate_prompt_answer("Restore");
+    vcx.run_until_parked();
+    let restored = doc(&workbench, vcx);
+    restored.read_with(vcx, |d, _| {
+        assert_eq!(d.doc().title, "Recovered.pdf");
+        assert!(d.session.is_dirty(), "closing it asks first");
+    });
+    assert!(crate::storage::recovery_path(&dir).exists(), "kept until the restored document is saved");
+}
+
+#[gpui::test]
+fn discarding_the_recovery_copy_deletes_it(cx: &mut TestAppContext) {
+    let dir = data_dir();
+    write_recovery_for_test(&dir);
+    let (workbench, vcx) = setup_in(cx, dir.clone());
+    vcx.simulate_prompt_answer("Discard");
+    vcx.run_until_parked();
+    assert!(!crate::storage::recovery_path(&dir).exists());
+    assert_eq!(workbench.read_with(vcx, |w, _| w.documents.len()), 1, "only the sample is open");
+}
+
+#[gpui::test]
+fn quitting_writes_a_pending_recovery_copy_at_once(cx: &mut TestAppContext) {
+    let (workbench, vcx) = setup(cx);
+    let doc = doc(&workbench, vcx);
+    let recovery = recovery_file(&workbench, vcx);
+    use_tool(&workbench, vcx, PdfTool::Rectangle);
+    let (from, to) = (at(&doc, vcx, 0, PointD::new(100.0, 450.0)), at(&doc, vcx, 0, PointD::new(200.0, 500.0)));
+    drag(vcx, from, to);
+    assert!(!recovery.exists(), "still inside the debounce");
+    // What Refr's on_app_quit handler runs.
+    workbench.update(vcx, |w, cx| w.flush_recovery(cx));
+    assert!(recovery.exists(), "quitting doesn't lose the last change");
+}
+
+#[gpui::test]
+fn quitting_with_everything_saved_removes_the_recovery_copy(cx: &mut TestAppContext) {
+    let (workbench, vcx) = setup(cx);
+    let recovery = recovery_file(&workbench, vcx);
+    // A leftover copy, as an earlier version of Refr would have left behind.
+    write_recovery_for_test(recovery.parent().unwrap());
+    workbench.update(vcx, |w, cx| w.flush_recovery(cx));
+    assert!(!recovery.exists());
 }

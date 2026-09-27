@@ -195,7 +195,7 @@ fn main() {
         match engine {
             Ok(engine) => {
                 let window = cx
-                    .open_window(options, |window, cx| cx.new(|cx| Workbench::new(engine, initial, window, cx)))
+                    .open_window(options, |window, cx| cx.new(|cx| Workbench::new(engine, initial, storage::data_dir(), window, cx)))
                     .expect("the main window opens");
                 // Files opened from Finder while running.
                 cx.spawn(async move |cx| {

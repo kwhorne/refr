@@ -33,4 +33,13 @@ mod tests {
         let round = workspace_json::load(&workspace_json::save(&doc)).unwrap();
         assert_eq!(round, doc);
     }
+
+    #[test]
+    fn coordinates_round_trip_exactly() {
+        let mut doc = PdfWorkspace::default();
+        let bounds = RectD::new(99.99999933367737, 450.0000114607498, 99.9999776115584, 49.999988805779196);
+        doc.pages[0].annotations.push(Annotation::new(AnnotationKind::Rectangle, bounds));
+        let round = workspace_json::load(&workspace_json::save(&doc)).unwrap();
+        assert_eq!(round.pages[0].annotations[0].bounds, bounds);
+    }
 }

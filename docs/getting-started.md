@@ -20,9 +20,9 @@ Gatekeeper warning. To build it yourself, see [Building from source](building.md
 When you start Refr without a file, it opens a six-page **sample report**, so you can try
 the tools right away. Nothing you do to the sample affects anything on disk.
 
-If Refr finds a recovery copy from an earlier session, it asks **Restore your previous
-workspace?** Choose **Restore** to open it in a new tab, or **Not Now** to leave it
-alone. See [The recovery copy](saving-and-exporting.md#the-recovery-copy).
+If Refr quit with unsaved changes last time, it asks **Restore unsaved changes?** Choose
+**Restore** to open them in a new tab, or **Discard** to delete the recovery copy. See
+[The recovery copy](saving-and-exporting.md#the-recovery-copy).
 
 ## Opening files
 
