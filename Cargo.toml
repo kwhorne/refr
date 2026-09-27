@@ -1,0 +1,42 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[workspace.dependencies]
+# Pinned exactly: GPUI follows Zed and breaks without notice.
+# `runtime_shaders` compiles Metal shaders at startup, so building does not need full Xcode.
+gpui = { version = "=0.2.2", default-features = false, features = ["font-kit", "runtime_shaders"] }
+# Bound at runtime to the libpdfium.dylib in vendor/pdfium (see scripts/fetch-pdfium.sh).
+pdfium-render = { version = "0.9.4", default-features = false, features = ["pdfium_latest", "thread_safe"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_repr = "0.1"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }
+base64 = "0.22"
+thiserror = "2"
+anyhow = "1"
+zip = { version = "4", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+smallvec = "1"
+dirs = "6"
+
+refr-core = { path = "crates/refr-core" }
+refr-pdf = { path = "crates/refr-pdf" }
+
+[profile.release]
+lto = "thin"
+
+# Keeps target/ small: GPUI and its dependencies are large with full debug info.
+[profile.dev]
+debug = "line-tables-only"
+incremental = false
+
+[profile.dev.package."*"]
+debug = false
