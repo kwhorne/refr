@@ -61,6 +61,9 @@ and text objects, and adds comments as PDF text annotations.
   - Pointer handlers turn window positions into page points with the stored placements,
     so rendering and input share one transform.
   - Images leaving the caches are released from GPUI's atlas with `drop_image`.
+- Annotation text is painted with GPUI's text system on upright pages. On rotated pages
+  `glyphs.rs` lays out outlines from the system Helvetica and fills them as paths
+  through the page transform, because GPUI can't rotate text.
 - Viewport shortcuts use the context `Viewport && !TextInput`, so single-letter tool
   keys never steal typing from the inline text editor.
 

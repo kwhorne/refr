@@ -4554,6 +4554,7 @@ dependencies = [
  "refr-pdf",
  "serde_json",
  "smallvec",
+ "ttf-parser 0.25.1",
 ]
 
 [[package]]

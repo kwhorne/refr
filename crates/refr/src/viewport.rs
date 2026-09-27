@@ -16,6 +16,7 @@ use refr_core::text_layout;
 use refr_core::{Annotation, AnnotationKind, PdfPageState, PdfTool, PointD, RectD, Uuid};
 
 use crate::actions::*;
+use crate::glyphs;
 use crate::document::{DocumentEvent, DocumentView, Fit, Gesture, TextSelection, px_f};
 use crate::theme::{self, argb};
 
@@ -27,6 +28,7 @@ pub(crate) enum Mark {
     Polygon { points: Vec<PointD>, color: Hsla },
     Stroke { points: Vec<PointD>, width: f64, color: Hsla, closed: bool },
     Text { origin: PointD, text: SharedString, size: f64, color: Hsla, bold: bool },
+    Glyphs { cmds: Vec<glyphs::Cmd>, color: Hsla },
     Outline { rect: RectD, color: Hsla },
     Handle { rect: RectD },
 }
@@ -94,6 +96,24 @@ impl Frame {
                     }
                     Mark::Text { origin: at, text, size, color, bold } => {
                         paint_text(window, cx, pt(origin, at), &text, size, color, bold, theme::ANNOTATION_FONT);
+                    }
+                    Mark::Glyphs { cmds, color } => {
+                        if cmds.is_empty() {
+                            continue;
+                        }
+                        let mut builder = PathBuilder::fill();
+                        for cmd in cmds {
+                            match cmd {
+                                glyphs::Cmd::Move(p) => builder.move_to(pt(origin, p)),
+                                glyphs::Cmd::Line(p) => builder.line_to(pt(origin, p)),
+                                glyphs::Cmd::Quad { ctrl, to } => builder.curve_to(pt(origin, to), pt(origin, ctrl)),
+                                glyphs::Cmd::Cubic { ctrl_a, ctrl_b, to } => builder.cubic_bezier_to(pt(origin, to), pt(origin, ctrl_a), pt(origin, ctrl_b)),
+                                glyphs::Cmd::Close => builder.close(),
+                            }
+                        }
+                        if let Ok(path) = builder.build() {
+                            window.paint_path(path, color);
+                        }
                     }
                     Mark::Outline { rect, color } => {
                         window.paint_quad(gpui::quad(rect_bounds(origin, rect), px(2.), gpui::transparent_black(), px(1.5), color, gpui::BorderStyle::Dashed));
@@ -208,18 +228,38 @@ fn annotation_marks(a: &Annotation, placement: &PagePlacement, page: &PdfPageSta
         }
         AnnotationKind::Stamp => {
             marks.push(Mark::Stroke { points: poly(r), width, color, closed: true });
-            let d = placement.rect_to_screen(page, r, zoom);
             let size = a.font_size.min(r.height - 12.0).max(4.0);
-            let label = if a.text.is_empty() { "APPROVED".to_string() } else { a.text.clone() };
-            marks.push(Mark::Text { origin: PointD::new(d.x + 10.0 * zoom, d.y + 7.0 * zoom), text: label.into(), size: size * zoom, color, bold: true });
+            let label = if a.text.is_empty() { "APPROVED" } else { a.text.as_str() };
+            text_block(label, PointD::new(r.x + 10.0, r.y + 7.0), size, r.width - 20.0, true, color, placement, page, zoom, marks);
         }
-        AnnotationKind::Text => {
-            let d = placement.rect_to_screen(page, r, zoom);
-            for (i, line) in text_layout::wrap(&a.text, a.font_size, r.width.max(1.0)).into_iter().enumerate() {
-                let y = d.y + i as f64 * a.font_size * text_layout::LINE_HEIGHT * zoom;
-                marks.push(Mark::Text { origin: PointD::new(d.x, y), text: line.into(), size: a.font_size * zoom, color, bold: false });
+        AnnotationKind::Text => text_block(&a.text, PointD::new(r.x, r.y), a.font_size, r.width.max(1.0), false, color, placement, page, zoom, marks),
+    }
+}
+
+/// Wrapped annotation text whose first line's top-left is `top_left` in page space, laid
+/// out like the exported PDF. Upright pages use GPUI's text; rotated pages use glyph
+/// outlines so the text turns with the page.
+#[allow(clippy::too_many_arguments)]
+fn text_block(text: &str, top_left: PointD, size: f64, max_width: f64, bold: bool, color: Hsla, placement: &PagePlacement, page: &PdfPageState, zoom: f64, marks: &mut Vec<Mark>) {
+    let lines = text_layout::wrap(text, size, max_width);
+    let step = size * text_layout::LINE_HEIGHT;
+    if page.rotation % 360 != 0 {
+        let mut cmds = Vec::new();
+        for (i, line) in lines.iter().enumerate() {
+            let baseline = PointD::new(top_left.x, top_left.y + size * text_layout::ASCENT + i as f64 * step);
+            match glyphs::line(line, baseline, size, bold) {
+                Some(outline) => cmds.extend(outline.into_iter().map(|cmd| cmd.map(|p| placement.to_screen(page, p, zoom)))),
+                None => break,
             }
         }
+        if !cmds.is_empty() || lines.iter().all(|l| l.trim().is_empty()) {
+            marks.push(Mark::Glyphs { cmds, color });
+            return;
+        }
+    }
+    for (i, line) in lines.into_iter().enumerate() {
+        let origin = placement.to_screen(page, PointD::new(top_left.x, top_left.y + i as f64 * step), zoom);
+        marks.push(Mark::Text { origin, text: line.into(), size: size * zoom, color, bold });
     }
 }
 

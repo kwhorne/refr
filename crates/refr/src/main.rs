@@ -3,6 +3,7 @@
 mod actions;
 mod assets;
 mod document;
+mod glyphs;
 mod panels;
 mod shell;
 mod storage;

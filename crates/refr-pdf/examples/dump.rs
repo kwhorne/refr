@@ -22,5 +22,10 @@ fn main() {
     std::fs::write(out.join("sample-p1.png"), raw.to_png().unwrap()).unwrap();
     std::fs::write(out.join("export-p2.png"), engine.export_png(&doc, 1, 1.0).unwrap()).unwrap();
     std::fs::write(out.join("review.pdfspace"), refr_core::workspace_json::save(&doc)).unwrap();
+    let mut rotated = EditorSession::new((*doc).clone()).unwrap();
+    rotated.rotate_page(0, 90).unwrap();
+    let rotated = rotated.document().clone();
+    std::fs::write(out.join("rotated.pdfspace"), refr_core::workspace_json::save(&rotated)).unwrap();
+    std::fs::write(out.join("rotated.png"), engine.export_png(&rotated, 0, 1.0).unwrap()).unwrap();
     std::fs::write(out.join("export.pdf"), engine.export_pdf(&Arc::clone(&doc), None).unwrap()).unwrap();
 }

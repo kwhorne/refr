@@ -82,8 +82,6 @@ Refr finds PDFium in this order: `REFR_PDFIUM`, next to the executable,
 
 ## Known limitations
 
-- On rotated pages, added text annotations are shown unrotated in the viewer. The
-  exported PDF is correct.
 - Exported annotation text uses the PDF standard Helvetica font (WinAnsi characters).
 - PDF document metadata (title, author) isn't written into exported files.
 - Printing opens the exported PDF in your default viewer, where you print with ⌘P.
