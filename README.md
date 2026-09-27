@@ -9,6 +9,12 @@ the engine in Chromium. It is a port of [PdfSpace](https://github.com/wieslawsol
 and writes PdfSpace's `.pdfspace` workspaces. There is no account, no upload and no
 telemetry.
 
+## Download
+
+Get the signed and notarized `Refr-<version>-arm64.dmg` from
+[Releases](https://github.com/kwhorne/refr/releases), open it and drag Refr to
+Applications. Requires an Apple silicon Mac with macOS 13 or later.
+
 ## Highlights
 
 - **Read and navigate:** up to eight documents in tabs; continuous, single-page and
@@ -58,7 +64,8 @@ required, because GPUI compiles its Metal shaders at startup.
 scripts/fetch-pdfium.sh      # downloads libpdfium.dylib into vendor/pdfium
 cargo run -p refr            # or: cargo run -p refr -- some.pdf
 cargo test                   # core, engine and headless UI tests
-scripts/bundle.sh            # target/release/Refr.app with PDFium in Frameworks
+scripts/bundle.sh            # target/bundle/Refr.app, signed ad hoc
+NOTARY_PROFILE=<profile> scripts/release.sh   # Developer ID signed, notarized DMG and ZIP
 ```
 
 Refr finds PDFium in this order: `REFR_PDFIUM`, next to the executable,
@@ -88,6 +95,6 @@ Refr finds PDFium in this order: `REFR_PDFIUM`, next to the executable,
 
 ## License
 
-MIT. The icons are PdfSpace's original vector paths (MIT). The text field is adapted
+MIT (see [LICENSE](LICENSE)). The app icon is drawn by `scripts/make_icon.swift`. The icons are PdfSpace's original vector paths (MIT). The text field is adapted
 from GPUI's `input` example (Apache-2.0). PDFium is BSD-3-Clause/Apache-2.0; its license
 files are in `vendor/pdfium` after fetching.
