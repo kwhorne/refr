@@ -4543,7 +4543,7 @@ dependencies = [
 
 [[package]]
 name = "refr"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4559,7 +4559,7 @@ dependencies = [
 
 [[package]]
 name = "refr-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64",
  "chrono",
@@ -4572,7 +4572,7 @@ dependencies = [
 
 [[package]]
 name = "refr-pdf"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "image",
