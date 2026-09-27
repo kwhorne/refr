@@ -5,6 +5,38 @@ refr (GPUI app) ──► refr-pdf (PDFium thread) ──► refr-core
         └──────────────────────────────────────► refr-core
 ```
 
+Refr is three crates. `refr-core` is the document model and has no UI or PDF dependencies.
+`refr-pdf` wraps PDFium. `refr` is the macOS app built with GPUI. For how this maps onto
+PdfSpace, see [Porting notes](porting-notes.md).
+
+## Source map
+
+| File | Responsibility |
+|---|---|
+| `refr-core/src/model.rs` | `PdfWorkspace`, `PdfSource`, `PdfPageState`, `Annotation`, `CommentReply` |
+| `refr-core/src/geometry.rs` | `PointD` and `RectD` |
+| `refr-core/src/layout.rs` | Page ↔ display transforms and viewport placement for the three layouts |
+| `refr-core/src/editor.rs` | `EditorSession`: transactions, undo/redo, tools, selection, page operations |
+| `refr-core/src/workspace_json.rs` | `.pdfspace` load and save, validation, combining and extracting |
+| `refr-core/src/text_layout.rs` | Annotation text wrapping with Helvetica widths |
+| `refr-core/src/page_range.rs` | Parsing of "1, 3-5" page ranges |
+| `refr-pdf/src/lib.rs` | `Engine`: the PDFium thread, import, words, search, render, export, PNG, split |
+| `refr-pdf/src/frame.rs` | `PageFrame`: logical ↔ PDF user space |
+| `refr-pdf/src/draw.rs` | Annotations written as PDF page objects |
+| `refr-pdf/src/sample.rs` | The generated sample report |
+| `refr/src/main.rs` | Startup, key bindings, menus, files opened from Finder |
+| `refr/src/workbench.rs` | `Workbench` state and commands: documents, modes, dialogs, files, recovery |
+| `refr/src/shell.rs` | Chrome rendering: title bar, global bar, tool panel, floating tools, rail, Home |
+| `refr/src/panels.rs` | Side panels and the Organize grid |
+| `refr/src/about.rs` | The About Refr window |
+| `refr/src/document.rs` | `DocumentView`: session, zoom, scroll, image caches, text selection, inline text |
+| `refr/src/viewport.rs` | Page painting, annotation marks, hit testing, pointer tools |
+| `refr/src/glyphs.rs` | Helvetica outlines for rotated annotation text |
+| `refr/src/text_input.rs` | Single-line text field |
+| `refr/src/storage.rs` | Loading, atomic writes, recovery copy, recent files |
+| `refr/src/theme.rs` | Colors, palette, buttons and icons |
+| `refr/src/tests.rs` | Headless UI tests |
+
 ## Document state (`refr-core`)
 
 A `PdfWorkspace` holds immutable source PDFs (`Arc<[u8]>`, shared across every history
@@ -74,5 +106,7 @@ and text objects, and adds comments as PDF text annotations.
   round trips, PNG and split.
 - `refr`: a real workbench in GPUI's headless test window, driven by simulated pointer
   and keyboard events. Covers highlighting, drawing, moving and resizing, undo, rotated
-  pages, the text and comment tools, cropping, copying, zoom and shortcuts. These tests
-  set `REFR_DATA_DIR` so they never touch the user's recovery file.
+  pages, the text and comment tools, cropping, copying, zoom, shortcuts and the About
+  window. These tests set `REFR_DATA_DIR` so they never touch the user's recovery file.
+
+See [Testing](testing.md) for the full list and how to write new tests.

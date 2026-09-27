@@ -17,6 +17,21 @@ Get the signed and notarized `Refr-<version>-arm64.dmg` from
 [Releases](https://github.com/kwhorne/refr/releases), open it and drag Refr to
 Applications. Requires an Apple silicon Mac with macOS 13 or later.
 
+## Documentation
+
+The full documentation is in [docs/](docs/README.md):
+
+- **Using Refr:** [getting started](docs/getting-started.md), [the workspace](docs/interface.md),
+  [annotating](docs/annotating.md), [comments](docs/comments.md),
+  [organizing pages](docs/organizing-pages.md), [fill and sign](docs/fill-and-sign.md),
+  [saving and exporting](docs/saving-and-exporting.md), [shortcuts](docs/keyboard-shortcuts.md),
+  [privacy and limitations](docs/privacy-and-limitations.md) and
+  [troubleshooting](docs/troubleshooting.md).
+- **Developing Refr:** [building](docs/building.md), [architecture](docs/architecture.md),
+  [the .pdfspace format](docs/workspace-format.md), [testing](docs/testing.md),
+  [releasing](docs/releasing.md), [porting notes](docs/porting-notes.md) and
+  [contributing](docs/contributing.md).
+
 ## Highlights
 
 - **Read and navigate:** up to eight documents in tabs; continuous, single-page and
@@ -55,7 +70,7 @@ redaction aren't supported, and Refr doesn't pretend otherwise.
 | `refr-pdf` | PDFium on its own thread: import, words with positions, search, rendering, export, PNG, split, and the generated sample document. |
 | `refr` | The GPUI app: workbench, viewport and pointer tools, panels, dialogs, storage. |
 
-See [docs/architecture.md](docs/architecture.md).
+See [Architecture](docs/architecture.md) and [the .pdfspace format](docs/workspace-format.md).
 
 ## Build and run
 
